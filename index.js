@@ -7,6 +7,10 @@ app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 10000;
 
+// Substitua pelos seus dados da Z-API:
+const INSTANCE_ID = "SUA_INSTANCIA";
+const TOKEN = "SEU_TOKEN";
+
 app.post("/webhook", async (req, res) => {
   const body = req.body;
 
@@ -15,32 +19,34 @@ app.post("/webhook", async (req, res) => {
   try {
     const message = body?.text?.message;
     const sender = body?.senderName;
-    const chatId = body?.chatId;
+    const rawChatId = body?.chatId;
 
-    if (!message || !sender || !chatId) {
+    if (!message || !sender || !rawChatId) {
       console.log("⚠️ Dados incompletos recebidos. Ignorando...");
       return res.sendStatus(200);
     }
 
-    // Resposta automática
-    const resposta = `Olá, ${sender.split(" ")[0]}! 👋\nRecebemos sua mensagem: *${message}*`;
+    const phone = rawChatId.replace("@c.us", "");
 
-    // Envia a resposta pelo endpoint da Z-API
-    await axios.post("https://v2.z-api.io/instances/seu_id_da_instancia/token/seu_token/send-text", {
-      phone: chatId,
+    const resposta = `Olá, ${sender?.split(" ")[0]}! 👋\nRecebemos sua mensagem: *${message}*`;
+
+    const url = `https://v2.z-api.io/instances/${INSTANCE_ID}/token/${TOKEN}/send-text`;
+
+    await axios.post(url, {
+      phone,
       message: resposta,
     });
 
-    console.log("✅ Resposta enviada:", resposta);
+    console.log("✅ Mensagem enviada para", phone);
     res.sendStatus(200);
   } catch (err) {
-    console.error("❌ Erro ao processar mensagem:", err);
+    console.error("❌ Erro ao processar mensagem:", err.message);
     res.sendStatus(500);
   }
 });
 
 app.get("/", (req, res) => {
-  res.send("Vitoriano Bot está rodando! 🚀");
+  res.send("✅ Vitoriano Bot está rodando!");
 });
 
 app.listen(PORT, () => {
