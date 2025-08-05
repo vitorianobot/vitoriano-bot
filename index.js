@@ -27,10 +27,15 @@ const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
 
 app.post('/webhook', async (req, res) => {
   try {
-    const incomingMsg = req.body.message;
-    const sender = req.body.sender;
+    // NOVO: mostra o corpo inteiro recebido da Z-API no log
+    console.log('📩 Corpo recebido da Z-API:', JSON.stringify(req.body, null, 2));
+
+    // Tenta encontrar a mensagem e o número em diferentes formatos possíveis
+    const incomingMsg = req.body.message || req.body.body?.message?.text || req.body.body?.text;
+    const sender = req.body.sender || req.body.body?.sender?.id || req.body.body?.chatId;
 
     if (!incomingMsg || !sender) {
+      console.log('❌ Dados incompletos recebidos. Ignorando...');
       return res.status(400).send('Dados inválidos');
     }
 
@@ -55,23 +60,23 @@ app.post('/webhook', async (req, res) => {
 
     const gptResponse = completion.data.choices[0].message.content;
 
-    // Envia a resposta via Z-API para o número que mandou mensagem
-    await axios.post(`https://api.z-api.io/instances/SUA_INSTANCIA_AQUI/token/SEU_TOKEN_AQUI/send-text`, {
+    // ENVIA a resposta via Z-API (troque pelos seus dados reais abaixo)
+    await axios.post(`https://api.z-api.io/instances/SUA_INSTANCIA/token/SEU_TOKEN/send-text`, {
       phone: sender,
       message: gptResponse
     });
 
-    console.log(`Mensagem recebida de ${sender}: ${incomingMsg}`);
-    console.log(`Resposta enviada pelo bot: ${gptResponse}`);
+    console.log(`✅ Mensagem de ${sender}: "${incomingMsg}"`);
+    console.log(`🤖 Resposta enviada: "${gptResponse}"`);
 
     return res.status(200).send({ reply: gptResponse });
   } catch (error) {
-    console.error('Erro no webhook:', error.response?.data || error.message);
+    console.error('❌ Erro no webhook:', error.response?.data || error.message);
     return res.status(500).send('Erro interno');
   }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
