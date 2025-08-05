@@ -1,82 +1,48 @@
-// vitoriano-whatsapp-bot/index.js
-
-const express = require('express');
-const bodyParser = require('body-parser');
-const axios = require('axios');
-require('dotenv').config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const axios = require("axios");
 
 const app = express();
 app.use(bodyParser.json());
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const fluxoBase = `
-Você é o assistente virtual da Vitoriano Doces, uma doceira artesanal mineira.
-Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim" com moderação.
+const PORT = process.env.PORT || 10000;
 
-A mensagem inicial do atendimento deve oferecer as opções abaixo:
-1. Comprar pelo site
-2. Saber horário e dias de funcionamento das lojas
-3. Informações pra revenda (atacado)
-4. Relatar e resolver um problema
-5. Outro assunto
+app.post("/webhook", async (req, res) => {
+  const body = req.body;
 
-Siga sempre o roteiro aprovado da Parte 1, 2 e 3 do fluxo da Vitoriano, mantendo respostas claras, educadas, no tom mineiro informado. Quando a entrada do usuário não corresponder exatamente a um número, interprete a intenção e responda com base no roteiro.
-`;
+  console.log("📩 Webhook recebido:", JSON.stringify(body, null, 2));
 
-const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
-
-app.post('/webhook', async (req, res) => {
   try {
-    // NOVO: mostra o corpo inteiro recebido da Z-API no log
-    console.log('📩 Corpo recebido da Z-API:', JSON.stringify(req.body, null, 2));
+    const message = body?.text?.message;
+    const sender = body?.senderName;
+    const chatId = body?.chatId;
 
-    // Tenta encontrar a mensagem e o número em diferentes formatos possíveis
-    const incomingMsg = req.body.message || req.body.body?.message?.text || req.body.body?.text;
-    const sender = req.body.sender || req.body.body?.sender?.id || req.body.body?.chatId;
-
-    if (!incomingMsg || !sender) {
-      console.log('❌ Dados incompletos recebidos. Ignorando...');
-      return res.status(400).send('Dados inválidos');
+    if (!message || !sender || !chatId) {
+      console.log("⚠️ Dados incompletos recebidos. Ignorando...");
+      return res.sendStatus(200);
     }
 
-    const completion = await axios.post(
-      openaiEndpoint,
-      {
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: fluxoBase },
-          { role: 'user', content: incomingMsg }
-        ],
-        temperature: 0.7,
-        max_tokens: 700
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    // Resposta automática
+    const resposta = `Olá, ${sender.split(" ")[0]}! 👋\nRecebemos sua mensagem: *${message}*`;
 
-    const gptResponse = completion.data.choices[0].message.content;
-
-    // ENVIA a resposta via Z-API (troque pelos seus dados reais abaixo)
-    await axios.post(`https://api.z-api.io/instances/SUA_INSTANCIA/token/SEU_TOKEN/send-text`, {
-      phone: sender,
-      message: gptResponse
+    // Envia a resposta pelo endpoint da Z-API
+    await axios.post("https://v2.z-api.io/instances/seu_id_da_instancia/token/seu_token/send-text", {
+      phone: chatId,
+      message: resposta,
     });
 
-    console.log(`✅ Mensagem de ${sender}: "${incomingMsg}"`);
-    console.log(`🤖 Resposta enviada: "${gptResponse}"`);
-
-    return res.status(200).send({ reply: gptResponse });
-  } catch (error) {
-    console.error('❌ Erro no webhook:', error.response?.data || error.message);
-    return res.status(500).send('Erro interno');
+    console.log("✅ Resposta enviada:", resposta);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("❌ Erro ao processar mensagem:", err);
+    res.sendStatus(500);
   }
 });
 
-const PORT = process.env.PORT || 3000;
+app.get("/", (req, res) => {
+  res.send("Vitoriano Bot está rodando! 🚀");
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
