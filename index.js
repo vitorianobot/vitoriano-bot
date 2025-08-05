@@ -8,11 +8,11 @@ require('dotenv').config();
 const app = express();
 app.use(bodyParser.json());
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const fluxoBase = `
-Você é o assistente virtual da Vitoriano Doces, uma doceira artesanal mineira.
-Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim" com moderação.
+Você é o assistente virtual da Vitoriano Doces, uma doçaira artesanal mineira.
+Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim", "bom dimais" commuita moderação.
 
 A mensagem inicial do atendimento deve oferecer as opções abaixo:
 1. Comprar pelo site
@@ -54,9 +54,9 @@ app.post('/webhook', async (req, res) => {
       },
       {
         headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+  'Content-Type': 'application/json'
+}
       }
     );
 
