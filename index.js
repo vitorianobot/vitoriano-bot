@@ -8,12 +8,13 @@ require('dotenv').config();
 const app = express();
 app.use(bodyParser.json());
 
+// 🔐 Variáveis de ambiente
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
+const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 
-// 🚀 CONFIGURAÇÕES Z-API
-const ZAPI_INSTANCE_ID = '3E538FF1A790A041FE70166DEAE7FD59';
-const ZAPI_TOKEN = '7D5F1B851A1BC68B5085837F';
-const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
+// 🚀 URL da Z-API com envio de token por cabeçalho (forma correta)
+const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-text`;
 
 const fluxoBase = `
 Você é o assistente virtual da Vitoriano Doces, uma doçaira artesanal mineira.
@@ -34,9 +35,8 @@ const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
 app.post('/webhook', async (req, res) => {
   try {
     const incoming = req.body;
-
     const incomingMsg = incoming?.text?.message;
-    const phoneNumber = incoming?.phone; // telefone do cliente
+    const phoneNumber = incoming?.phone;
     const senderName = incoming?.senderName;
 
     if (!incomingMsg || !phoneNumber) {
@@ -46,7 +46,7 @@ app.post('/webhook', async (req, res) => {
 
     console.log(`📩 Mensagem recebida de ${senderName} (${phoneNumber}): ${incomingMsg}`);
 
-    // Geração de resposta pelo GPT
+    // Chamada para OpenAI
     const completion = await axios.post(
       openaiEndpoint,
       {
@@ -69,13 +69,23 @@ app.post('/webhook', async (req, res) => {
     const gptResponse = completion.data.choices[0].message.content;
     console.log(`🤖 Resposta do bot: ${gptResponse}`);
 
-    // Enviar resposta via Z-API
-    await axios.post(ZAPI_URL, {
-      phone: phoneNumber,
-      message: gptResponse
-    });
+    // Envio da resposta pela Z-API com token correto
+    await axios.post(
+      ZAPI_URL,
+      {
+        phone: phoneNumber,
+        message: gptResponse
+      },
+      {
+        headers: {
+          'Client-Token': ZAPI_TOKEN,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
     return res.status(200).send({ reply: gptResponse });
+
   } catch (error) {
     console.error('❌ Erro no webhook:', error.response?.data || error.message);
     return res.status(500).send('Erro interno');
