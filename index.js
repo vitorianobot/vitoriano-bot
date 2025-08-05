@@ -8,12 +8,10 @@ require('dotenv').config();
 const app = express();
 app.use(bodyParser.json());
 
-// 🔐 Variáveis de ambiente
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 
-// 🚀 URL da Z-API com envio de token por cabeçalho (forma correta)
 const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-text`;
 
 const fluxoBase = `
@@ -46,7 +44,6 @@ app.post('/webhook', async (req, res) => {
 
     console.log(`📩 Mensagem recebida de ${senderName} (${phoneNumber}): ${incomingMsg}`);
 
-    // Chamada para OpenAI
     const completion = await axios.post(
       openaiEndpoint,
       {
@@ -69,7 +66,7 @@ app.post('/webhook', async (req, res) => {
     const gptResponse = completion.data.choices[0].message.content;
     console.log(`🤖 Resposta do bot: ${gptResponse}`);
 
-    // Envio da resposta pela Z-API com token correto
+    // ✅ Enviar resposta via Z-API com o token no header
     await axios.post(
       ZAPI_URL,
       {
@@ -85,7 +82,6 @@ app.post('/webhook', async (req, res) => {
     );
 
     return res.status(200).send({ reply: gptResponse });
-
   } catch (error) {
     console.error('❌ Erro no webhook:', error.response?.data || error.message);
     return res.status(500).send('Erro interno');
