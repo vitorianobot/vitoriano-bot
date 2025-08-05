@@ -9,7 +9,6 @@ const app = express();
 app.use(bodyParser.json());
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
 const fluxoBase = `
 Você é o assistente virtual da Vitoriano Doces, uma doceira artesanal mineira.
 Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim" com moderação.
@@ -35,8 +34,6 @@ app.post('/webhook', async (req, res) => {
       return res.status(400).send('Dados inválidos');
     }
 
-    const prompt = `${fluxoBase}\nUsuário: ${incomingMsg}\nAssistente:`;
-
     const completion = await axios.post(
       openaiEndpoint,
       {
@@ -58,9 +55,14 @@ app.post('/webhook', async (req, res) => {
 
     const gptResponse = completion.data.choices[0].message.content;
 
-    // Aqui você pode implementar o envio de volta via Z-API
+    // Envia a resposta via Z-API para o número que mandou mensagem
+    await axios.post(`https://api.z-api.io/instances/SUA_INSTANCIA_AQUI/token/SEU_TOKEN_AQUI/send-text`, {
+      phone: sender,
+      message: gptResponse
+    });
+
     console.log(`Mensagem recebida de ${sender}: ${incomingMsg}`);
-    console.log(`Resposta do bot: ${gptResponse}`);
+    console.log(`Resposta enviada pelo bot: ${gptResponse}`);
 
     return res.status(200).send({ reply: gptResponse });
   } catch (error) {
