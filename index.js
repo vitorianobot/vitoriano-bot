@@ -1,54 +1,79 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
+// vitoriano-whatsapp-bot/index.js
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+require('dotenv').config();
 
 const app = express();
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 10000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// Substitua pelos seus dados da Z-API:
-const INSTANCE_ID = "SUA_INSTANCIA";
-const TOKEN = "SEU_TOKEN";
+const fluxoBase = `
+Você é o assistente virtual da Vitoriano Doces, uma doceira artesanal mineira.
+Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim" com moderação.
 
-app.post("/webhook", async (req, res) => {
-  const body = req.body;
+A mensagem inicial do atendimento deve oferecer as opções abaixo:
+1. Comprar pelo site
+2. Saber horário e dias de funcionamento das lojas
+3. Informações pra revenda (atacado)
+4. Relatar e resolver um problema
+5. Outro assunto
 
-  console.log("📩 Webhook recebido:", JSON.stringify(body, null, 2));
+Siga sempre o roteiro aprovado da Parte 1, 2 e 3 do fluxo da Vitoriano, mantendo respostas claras, educadas, no tom mineiro informado. Quando a entrada do usuário não corresponder exatamente a um número, interprete a intenção e responda com base no roteiro.
+`;
 
+const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
+
+app.post('/webhook', async (req, res) => {
   try {
-    const message = body?.text?.message;
-    const sender = body?.senderName;
-    const rawChatId = body?.chatId;
+    const incoming = req.body;
 
-    if (!message || !sender || !rawChatId) {
+    // 🔎 Aqui pegamos os dados corretamente conforme a estrutura do Z-API
+    const incomingMsg = incoming?.text?.message;
+    const sender = incoming?.senderName;
+
+    if (!incomingMsg || !sender) {
       console.log("⚠️ Dados incompletos recebidos. Ignorando...");
-      return res.sendStatus(200);
+      return res.status(400).send('Dados inválidos');
     }
 
-    const phone = rawChatId.replace("@c.us", "");
+    const prompt = `${fluxoBase}\nUsuário: ${incomingMsg}\nAssistente:`;
 
-    const resposta = `Olá, ${sender?.split(" ")[0]}! 👋\nRecebemos sua mensagem: *${message}*`;
+    const completion = await axios.post(
+      openaiEndpoint,
+      {
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: fluxoBase },
+          { role: 'user', content: incomingMsg }
+        ],
+        temperature: 0.7,
+        max_tokens: 700
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
 
-    const url = `https://v2.z-api.io/instances/${INSTANCE_ID}/token/${TOKEN}/send-text`;
+    const gptResponse = completion.data.choices[0].message.content;
 
-    await axios.post(url, {
-      phone,
-      message: resposta,
-    });
+    console.log(`📩 Mensagem de ${sender}: ${incomingMsg}`);
+    console.log(`🤖 Resposta do bot: ${gptResponse}`);
 
-    console.log("✅ Mensagem enviada para", phone);
-    res.sendStatus(200);
-  } catch (err) {
-    console.error("❌ Erro ao processar mensagem:", err.message);
-    res.sendStatus(500);
+    // Aqui é onde você vai configurar o retorno da mensagem via Z-API futuramente.
+    return res.status(200).send({ reply: gptResponse });
+  } catch (error) {
+    console.error('❌ Erro no webhook:', error.response?.data || error.message);
+    return res.status(500).send('Erro interno');
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("✅ Vitoriano Bot está rodando!");
-});
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
