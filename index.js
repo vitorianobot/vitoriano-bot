@@ -10,6 +10,11 @@ app.use(bodyParser.json());
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+// 🚀 CONFIGURAÇÕES Z-API
+const ZAPI_INSTANCE_ID = '3E538FF1A790A041FE70166DEAE7FD59';
+const ZAPI_TOKEN = '7D5F1B851A1BC68B5085837F';
+const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
+
 const fluxoBase = `
 Você é o assistente virtual da Vitoriano Doces, uma doçaira artesanal mineira.
 Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim", "bom dimais" com muita moderação.
@@ -30,17 +35,18 @@ app.post('/webhook', async (req, res) => {
   try {
     const incoming = req.body;
 
-    // 🔎 Aqui pegamos os dados corretamente conforme a estrutura do Z-API
     const incomingMsg = incoming?.text?.message;
-    const sender = incoming?.senderName;
+    const phoneNumber = incoming?.phone; // telefone do cliente
+    const senderName = incoming?.senderName;
 
-    if (!incomingMsg || !sender) {
+    if (!incomingMsg || !phoneNumber) {
       console.log("⚠️ Dados incompletos recebidos. Ignorando...");
       return res.status(400).send('Dados inválidos');
     }
 
-    const prompt = `${fluxoBase}\nUsuário: ${incomingMsg}\nAssistente:`;
+    console.log(`📩 Mensagem recebida de ${senderName} (${phoneNumber}): ${incomingMsg}`);
 
+    // Geração de resposta pelo GPT
     const completion = await axios.post(
       openaiEndpoint,
       {
@@ -61,11 +67,14 @@ app.post('/webhook', async (req, res) => {
     );
 
     const gptResponse = completion.data.choices[0].message.content;
-
-    console.log(`📩 Mensagem de ${sender}: ${incomingMsg}`);
     console.log(`🤖 Resposta do bot: ${gptResponse}`);
 
-    // Aqui é onde você vai configurar o retorno da mensagem via Z-API futuramente.
+    // Enviar resposta via Z-API
+    await axios.post(ZAPI_URL, {
+      phone: phoneNumber,
+      message: gptResponse
+    });
+
     return res.status(200).send({ reply: gptResponse });
   } catch (error) {
     console.error('❌ Erro no webhook:', error.response?.data || error.message);
