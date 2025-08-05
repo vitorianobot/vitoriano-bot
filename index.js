@@ -9,14 +9,15 @@ const app = express();
 app.use(bodyParser.json());
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// 🚀 CONFIGURAÇÕES Z-API
 const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
 const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-
 const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-text`;
 
 const fluxoBase = `
 Você é o assistente virtual da Vitoriano Doces, uma doçaira artesanal mineira.
-Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "ocê", "uai", "trem", "cadim", "bom dimais" com muita moderação.
+Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "cê", "procê" "uai", "trem", "cadim", "bom dimais" com muita moderação.
 
 A mensagem inicial do atendimento deve oferecer as opções abaixo:
 1. Comprar pelo site
@@ -33,6 +34,7 @@ const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
 app.post('/webhook', async (req, res) => {
   try {
     const incoming = req.body;
+
     const incomingMsg = incoming?.text?.message;
     const phoneNumber = incoming?.phone;
     const senderName = incoming?.senderName;
@@ -44,6 +46,7 @@ app.post('/webhook', async (req, res) => {
 
     console.log(`📩 Mensagem recebida de ${senderName} (${phoneNumber}): ${incomingMsg}`);
 
+    // Geração da resposta com OpenAI
     const completion = await axios.post(
       openaiEndpoint,
       {
@@ -66,7 +69,7 @@ app.post('/webhook', async (req, res) => {
     const gptResponse = completion.data.choices[0].message.content;
     console.log(`🤖 Resposta do bot: ${gptResponse}`);
 
-    // ✅ Enviar resposta via Z-API com o token no header
+    // Envia a resposta pro cliente usando Z-API com cabeçalho correto
     await axios.post(
       ZAPI_URL,
       {
@@ -82,6 +85,7 @@ app.post('/webhook', async (req, res) => {
     );
 
     return res.status(200).send({ reply: gptResponse });
+
   } catch (error) {
     console.error('❌ Erro no webhook:', error.response?.data || error.message);
     return res.status(500).send('Erro interno');
