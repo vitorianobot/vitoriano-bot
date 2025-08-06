@@ -1,69 +1,43 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const fetch = require('node-fetch');
+const express = require("express");
+const bodyParser = require("body-parser");
 const app = express();
 const port = 10000;
 
 app.use(bodyParser.json());
 
-app.get('/', (req, res) => {
-  res.send('Bot Vitoriano tá rodando, uai! 🚀');
-});
+app.post("/webhook", (req, res) => {
+  const message = req.body.message?.body;
+  const sender = req.body.message?.from;
 
-app.post('/webhook', (req, res) => {
-  const { message } = req.body;
+  console.log("📨 Mensagem recebida de:", sender, "➡️", message);
 
-  if (!message || !message.text || !message.from) {
-    return res.sendStatus(400);
-  }
+  let resposta = "";
 
-  const mensagem = message.text.body;
-  const telefone = message.from;
-
-  console.log('📥 Mensagem recebida de', telefone, ':', mensagem);
-
-  let resposta = '';
-
-  switch (mensagem.trim()) {
-    case '1':
-      resposta = 'Que bom que cê tá interessado em comprar os nossos doces! Procê fazer suas compras pelo site, basta acessar o nosso endereço virtual: [www.vitorianodoces.com.br](http://www.vitorianodoces.com.br). Lá cê vai encontrar uma variedade de doces artesanais de dar água na boca. Se precisar de ajuda durante a compra, tô aqui procê! 🍬';
+  switch (message) {
+    case "1":
+      resposta = "Que bom que cê tá interessado em comprar os nossos doces! Procê fazer suas compras pelo site, basta acessar o nosso endereço virtual: [www.vitorianodoces.com.br](http://www.vitorianodoces.com.br). Lá cê vai encontrar uma variedade de doces artesanais de dar água na boca. Se precisar de ajuda durante a compra, tô aqui procê! 🍬";
       break;
-    case '2':
-      resposta = 'Nossas lojas funcionam todo dia, das 9h às 18h. Pode chegar pra prosear e adoçar o dia! ⏰';
+    case "2":
+      resposta = "Nossas lojas funcionam todo dia, das 9h às 17h, inclusive fins de semana e feriado! Quando quiser prosear ou experimentar um docim, só aparecer!";
       break;
-    case '3':
-      resposta = 'Pra revenda, é só chamar aqui mesmo que a gente te explica tim-tim por tim-tim, combinado? 🤝';
+    case "3":
+      resposta = "Ocê quer revender os doces da Vitoriano? Que notícia boa demais! Me passa seu nome e cidade que um dos nossos atendentes vai entrar em contato rapidim.";
       break;
-    case '4':
-      resposta = 'Ô trem bão é resolver rapidim! Conta aí qual foi o problema que a gente já vê isso agora. 🛠️';
+    case "4":
+      resposta = "Se aconteceu alguma coisa fora do normal, me conta aí direitinho o que foi. Vamo resolver isso juntos, uai!";
       break;
-    case '5':
-      resposta = 'Tô por aqui, viu? Só falar o que precisa que eu ajudo! 😄';
+    case "5":
+      resposta = "Beleza! Me conta qual é o assunto que cê quer tratar, que eu vejo aqui como posso te ajudar.";
       break;
     default:
-      resposta = 'Oi, tudo bem? Como posso ajudar procê hoje? Aqui estão algumas opções:\n\n1. Comprar pelo site\n2. Saber horário e dias de funcionamento das lojas\n3. Informações pra revenda (atacado)\n4. Relatar e resolver um problema\n5. Outro assunto\n\nÉ só me dizer o número da opção que cê precisa! 😊';
+      resposta = "Oi, tudo bem? Como posso ajudar procê hoje? Aqui estão algumas opções:\n\n1. Comprar pelo site\n2. Saber horário e dias de funcionamento das lojas\n3. Informações pra revenda (atacado)\n4. Relatar e resolver um problema\n5. Outro assunto\n\nÉ só me dizer o número da opção que cê precisa! 😊";
   }
 
-  fetch('https://v5.chatpro.com.br/chatpro-xyz/send-message', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': 'SEU_TOKEN_AQUI'
-    },
-    body: JSON.stringify({
-      phone: telefone,
-      message: resposta
-    })
-  })
-    .then(response => response.json())
-    .then(data => {
-      console.log('📤 Resposta enviada com sucesso:', resposta);
-    })
-    .catch(error => {
-      console.error('❌ Erro ao enviar mensagem:', error);
-    });
+  console.log("🤖 Resposta do bot:", resposta);
 
-  res.sendStatus(200);
+  res.send({
+    reply: resposta,
+  });
 });
 
 app.listen(port, () => {
