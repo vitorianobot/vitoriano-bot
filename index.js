@@ -1,45 +1,84 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const app = express();
-const port = 10000;
+// vitoriano-whatsapp-bot/index.js
 
+const express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+require('dotenv').config();
+
+const app = express();
 app.use(bodyParser.json());
 
-app.post("/webhook", (req, res) => {
-  const message = req.body.message?.body;
-  const sender = req.body.message?.from;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-  console.log("📨 Mensagem recebida de:", sender, "➡️", message);
+// CONFIGURAÇÕES DA Z-API
+const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
+const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
+const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
 
-  let resposta = "";
+const fluxoBase = `
+Você é o assistente virtual da Vitoriano Doces, uma doceria artesanal mineira. Atenda os clientes com acolhimento, clareza e um toque de mineirês leve — use palavras como "ocê", "procê", "uai" ou "trem" com moderação e naturalidade.
 
-  switch (message) {
-    case "1":
-      resposta = "Que bom que cê tá interessado em comprar os nossos doces! Procê fazer suas compras pelo site, basta acessar o nosso endereço virtual: [www.vitorianodoces.com.br](http://www.vitorianodoces.com.br). Lá cê vai encontrar uma variedade de doces artesanais de dar água na boca. Se precisar de ajuda durante a compra, tô aqui procê! 🍬";
-      break;
-    case "2":
-      resposta = "Nossas lojas funcionam todo dia, das 9h às 17h, inclusive fins de semana e feriado! Quando quiser prosear ou experimentar um docim, só aparecer!";
-      break;
-    case "3":
-      resposta = "Ocê quer revender os doces da Vitoriano? Que notícia boa demais! Me passa seu nome e cidade que um dos nossos atendentes vai entrar em contato rapidim.";
-      break;
-    case "4":
-      resposta = "Se aconteceu alguma coisa fora do normal, me conta aí direitinho o que foi. Vamo resolver isso juntos, uai!";
-      break;
-    case "5":
-      resposta = "Beleza! Me conta qual é o assunto que cê quer tratar, que eu vejo aqui como posso te ajudar.";
-      break;
-    default:
-      resposta = "Oi, tudo bem? Como posso ajudar procê hoje? Aqui estão algumas opções:\n\n1. Comprar pelo site\n2. Saber horário e dias de funcionamento das lojas\n3. Informações pra revenda (atacado)\n4. Relatar e resolver um problema\n5. Outro assunto\n\nÉ só me dizer o número da opção que cê precisa! 😊";
+A mensagem inicial do atendimento deve oferecer estas opções:
+1. Comprar pelo site
+2. Saber horário e dias de funcionamento das lojas
+3. Informações pra revenda (atacado)
+4. Relatar e resolver um problema
+5. Outro assunto
+
+Siga sempre o roteiro aprovado da Parte 1, 2 e 3 da Vitoriano. Quando a mensagem do cliente não for um número, tente entender a intenção e responda de forma adequada.
+`;
+
+const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
+
+app.post('/webhook', async (req, res) => {
+  try {
+    const incoming = req.body;
+    const incomingMsg = incoming?.text?.message;
+    const phoneNumber = incoming?.phone;
+    const senderName = incoming?.senderName;
+
+    if (!incomingMsg || !phoneNumber) {
+      console.log("⚠️ Mensagem recebida incompleta.");
+      return res.status(400).send('Dados inválidos');
+    }
+
+    console.log(`📩 De ${senderName} (${phoneNumber}): ${incomingMsg}`);
+
+    const completion = await axios.post(
+      openaiEndpoint,
+      {
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: fluxoBase },
+          { role: 'user', content: incomingMsg }
+        ],
+        temperature: 0.7,
+        max_tokens: 700
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const gptResponse = completion.data.choices[0].message.content;
+    console.log(`🤖 Bot: ${gptResponse}`);
+
+    await axios.post(ZAPI_URL, {
+      phone: phoneNumber,
+      message: gptResponse
+    });
+
+    res.status(200).send({ reply: gptResponse });
+  } catch (error) {
+    console.error('❌ Erro no webhook:', error.response?.data || error.message);
+    res.status(500).send('Erro interno');
   }
-
-  console.log("🤖 Resposta do bot:", resposta);
-
-  res.send({
-    reply: resposta,
-  });
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor rodando na porta ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
