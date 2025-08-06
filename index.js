@@ -1,98 +1,87 @@
-// vitoriano-whatsapp-bot/index.js
-
-const express = require('express');
-const bodyParser = require('body-parser');
-const axios = require('axios');
-require('dotenv').config();
+const express = require("express");
+const bodyParser = require("body-parser");
 
 const app = express();
+const PORT = process.env.PORT || 10000;
+
 app.use(bodyParser.json());
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+app.post("/", (req, res) => {
+  const incomingMessage = req.body.message?.text?.body || "";
+  const phone = req.body.message?.from || "";
+  const numberOnly = phone.replace(/\D/g, ""); // Remove caracteres não numéricos
 
-// 🚀 CONFIGURAÇÕES Z-API
-const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
-const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/send-text`;
+  const lowerMessage = incomingMessage.toLowerCase();
 
-const fluxoBase = `
-Você é o assistente virtual da Vitoriano Doces, uma doçaira artesanal mineira.
-Atenda os clientes com simpatia, acolhimento e profissionalismo. Use expressões típicas mineiras como "procê", "cê", "procê" "uai", "trem", "cadim", "bom dimais" com muita moderação.
+  let reply = "";
 
-A mensagem inicial do atendimento deve oferecer as opções abaixo:
-1. Comprar pelo site
-2. Saber horário e dias de funcionamento das lojas
-3. Informações pra revenda (atacado)
-4. Relatar e resolver um problema
-5. Outro assunto
-
-Siga sempre o roteiro aprovado da Parte 1, 2 e 3 do fluxo da Vitoriano, mantendo respostas claras, educadas, no tom mineiro informado. Quando a entrada do usuário não corresponder exatamente a um número, interprete a intenção e responda com base no roteiro.
-`;
-
-const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
-
-app.post('/webhook', async (req, res) => {
-  try {
-    const incoming = req.body;
-
-    const incomingMsg = incoming?.text?.message;
-    const phoneNumber = incoming?.phone;
-    const senderName = incoming?.senderName;
-
-    if (!incomingMsg || !phoneNumber) {
-      console.log("⚠️ Dados incompletos recebidos. Ignorando...");
-      return res.status(400).send('Dados inválidos');
-    }
-
-    console.log(`📩 Mensagem recebida de ${senderName} (${phoneNumber}): ${incomingMsg}`);
-
-    // Geração da resposta com OpenAI
-    const completion = await axios.post(
-      openaiEndpoint,
-      {
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: fluxoBase },
-          { role: 'user', content: incomingMsg }
-        ],
-        temperature: 0.7,
-        max_tokens: 700
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    const gptResponse = completion.data.choices[0].message.content;
-    console.log(`🤖 Resposta do bot: ${gptResponse}`);
-
-    // Envia a resposta pro cliente usando Z-API com cabeçalho correto
-    await axios.post(
-      ZAPI_URL,
-      {
-        phone: phoneNumber,
-        message: gptResponse
-      },
-      {
-        headers: {
-          'Client-Token': ZAPI_TOKEN,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    return res.status(200).send({ reply: gptResponse });
-
-  } catch (error) {
-    console.error('❌ Erro no webhook:', error.response?.data || error.message);
-    return res.status(500).send('Erro interno');
+  // Menu principal
+  if (lowerMessage === "oi" || lowerMessage === "olá" || lowerMessage === "pedido" || lowerMessage === "pedidos") {
+    reply =
+      "Oi, tudo bem? Aqui é o atendimento automático da *Vitoriano Doces*! 😊\n\n" +
+      "Em que posso te ajudar hoje? Escolha uma opção abaixo, respondendo só com o número:\n\n" +
+      "1. Comprar pelo site 🛒\n" +
+      "2. Saber horário e dias de funcionamento das lojas ⏰\n" +
+      "3. Informações pra revenda (atacado) 📦\n" +
+      "4. Relatar ou resolver um problema 🚨\n" +
+      "5. Outro assunto 🤔\n\n" +
+      "Pode digitar o número da opção que você quer, tá bão?";
   }
+
+  // Respostas do menu
+  else if (lowerMessage === "1") {
+    reply =
+      "Que bão que cê tá interessado em comprar os nossos doces! 🧁\n\n" +
+      "Pra fazer suas compras online, é só acessar nosso site:\n" +
+      "👉 [www.vitorianodoces.com.br](http://www.vitorianodoces.com.br)\n\n" +
+      "Lá cê vai encontrar uma variedade de doces artesanais de dar água na boca.\nSe precisar de ajuda durante a compra, só me chamar por aqui! 🍬";
+  }
+
+  else if (lowerMessage === "2") {
+    reply =
+      "Ô trem bão que cê quer vir prosear com a gente! 😊\n\n" +
+      "🛍️ *Horários das nossas lojas físicas:*\n" +
+      "📍 *Loja Bichinho (Matriz)*: Todos os dias, das 9h às 17h.\n" +
+      "📍 *Loja Tiradentes*: Quinta a Domingo, das 10h às 18h.\n\n" +
+      "Se quiser saber como chegar, é só pedir que mando o link do mapa, uai! 📍";
+  }
+
+  else if (lowerMessage === "3") {
+    reply =
+      "Cê tá interessado em revender os produtos da Vitoriano? Que maravilha! 🤝\n\n" +
+      "Pra saber mais sobre revenda, condições de atacado e catálogo, é só mandar um alô com o nome da sua loja e a cidade.\n\n" +
+      "Nosso time vai entrar em contato rapidim com você!";
+  }
+
+  else if (lowerMessage === "4") {
+    reply =
+      "Ô trem! Se aconteceu algum problema, a gente quer resolver isso já! 🚨\n\n" +
+      "Por favor, me conta direitinho o que aconteceu e, se puder, manda foto ou número do pedido.\n\n" +
+      "Vamos cuidar disso com todo carinho, tá bom?";
+  }
+
+  else if (lowerMessage === "5") {
+    reply =
+      "Beleza! Me conta com calma o que cê precisa que eu tô aqui pra ajudar, viu? 🤗";
+  }
+
+  // Resposta padrão caso mensagem não seja reconhecida
+  else {
+    reply =
+      "Uai, não entendi muito bem... 😅\n\n" +
+      "Responde só com o número da opção que cê precisa, por exemplo: *1*, *2*, *3*...\n" +
+      "Se preferir, pode mandar sua dúvida que eu tento ajudar também!";
+  }
+
+  // Retorno para o Z-API
+  res.send({
+    reply: {
+      phone: numberOnly,
+      message: reply,
+    },
+  });
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
