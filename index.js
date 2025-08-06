@@ -1,73 +1,89 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
+// vitoriano-whatsapp-bot/index.js
+
+const express = require('express');
+const bodyParser = require('body-parser');
+const axios = require('axios');
+require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 10000;
-
-// 🔒 Substitua aqui com os seus dados da Z-API
-const token = "SEU_TOKEN_AQUI";
-const instanceId = "SEU_ID_DA_INSTANCIA";
-
-// Middleware
 app.use(bodyParser.json());
 
-// Rota principal
-app.get("/", (req, res) => {
-  res.send("Vitoriano bot tá online, sô!");
-});
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const ZAPI_INSTANCE_ID = process.env.ZAPI_INSTANCE_ID;
+const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
 
-// Rota de Webhook
-app.post("/webhook", async (req, res) => {
-  const messageData = req.body;
-  console.log("📨 Mensagem recebida:", JSON.stringify(messageData, null, 2));
+const ZAPI_URL = `https://api.z-api.io/instances/${ZAPI_INSTANCE_ID}/token/${ZAPI_TOKEN}/send-text`;
 
+const fluxoBase = `
+Você é o assistente virtual da Vitoriano Doces, uma doçaria artesanal mineira. Atenda os clientes com simpatia, acolhimento e profissionalismo. Use um mineirês sutil e gentil: diga "cê" em vez de "você", "trem", "uai", "cadim", mas sem exagerar. Fale sempre de forma acolhedora e informativa.
+
+Mensagem inicial:
+Oi! Seja muito bem-vindo(a) à Vitoriano Doces 😄  
+Aqui vai um resumin bão do que cê pode fazer por aqui:
+
+1. Comprar pelo site  
+2. Saber horário e dias de funcionamento das lojas  
+3. Informações pra revenda (atacado)  
+4. Relatar e resolver um problema  
+5. Outro assunto  
+
+Responda com o número da opção desejada ou descreva o que cê precisa, que eu te ajudo!`;
+
+const openaiEndpoint = 'https://api.openai.com/v1/chat/completions';
+
+app.post('/webhook', async (req, res) => {
   try {
-    const sender = messageData.from;
-    const message = messageData.message?.text;
+    const incoming = req.body;
 
-    if (!sender || !message) {
-      return res.sendStatus(200);
+    const incomingMsg = incoming?.text?.message;
+    const phoneNumber = incoming?.phone;
+    const senderName = incoming?.senderName;
+
+    if (!incomingMsg || !phoneNumber) {
+      console.log("⚠️ Dados incompletos recebidos. Ignorando...");
+      return res.status(400).send('Dados inválidos');
     }
 
-    let resposta = "";
+    console.log(`📩 Mensagem recebida de ${senderName} (${phoneNumber}): ${incomingMsg}`);
 
-    switch (message.trim()) {
-      case "1":
-        resposta = "Cê pode comprar nossos produtos direto no site: https://vitorianodoces.com.br";
-        break;
-      case "2":
-        resposta = "Nossas lojas funcionam de sexta a domingo, de 10h às 17h. Aparece pra prosear!";
-        break;
-      case "3":
-        resposta = "Pra revenda dos nossos doces, chama a gente aqui mesmo que explico tudim!";
-        break;
-      case "4":
-        resposta = "Conta pra mim qual foi o problema que vamo resolver com jeitinho.";
-        break;
-      case "5":
-        resposta = "Beleza! Pode mandar sua dúvida aí.";
-        break;
-      default:
-        resposta = `Oi! Seja muito bem-vindo(a) à Vitoriano Doces 😄\n\nAqui vai um resumin bão do que cê pode fazer por aqui:\n\n1. Comprar pelo site\n2. Saber horário e dias de funcionamento das lojas\n3. Informações pra revenda (atacado)\n4. Relatar e resolver um problema\n5. Outro assunto\n\nÉ só me dizer o número da opção que cê precisa! 😊`;
-    }
-
-    await axios.post(
-      `https://api.z-api.io/instances/${instanceId}/token/${token}/send-text`,
+    // Gerar resposta com GPT
+    const completion = await axios.post(
+      openaiEndpoint,
       {
-        phone: sender,
-        message: resposta,
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: fluxoBase },
+          { role: 'user', content: incomingMsg }
+        ],
+        temperature: 0.6,
+        max_tokens: 700
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
       }
     );
 
-    console.log("🤖 Resposta enviada:", resposta);
-    res.sendStatus(200);
+    const gptResponse = completion.data.choices[0].message.content.trim();
+    console.log(`🤖 Resposta do bot: ${gptResponse}`);
+
+    // Envia via Z-API
+    await axios.post(ZAPI_URL, {
+      phone: phoneNumber,
+      message: gptResponse
+    });
+
+    return res.status(200).send({ reply: gptResponse });
+
   } catch (error) {
-    console.error("❌ Erro ao enviar resposta:", error.message);
-    res.sendStatus(500);
+    console.error('❌ Erro no webhook:', error?.response?.data || error.message);
+    return res.status(500).send('Erro interno do servidor');
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor rodando na porta ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
